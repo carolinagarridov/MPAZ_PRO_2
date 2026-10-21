@@ -4,25 +4,29 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.mpaz_pro_2.UserEntity
-import com.example.mpaz_pro_2.ProgressEntity
-import com.example.mpaz_pro_2.UserDao
-@Database(entities = [UserEntity::class, ProgressEntity::class], version = 1, exportSchema = false)
-abstract class AppDatabase : RoomDatabase() {
 
+
+@Database(entities = [UserEntity::class, EvaluationEntity::class], version = 2, exportSchema = false)
+abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
+    abstract fun evaluationDao(): EvaluationDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        fun getInstance(context: Context): AppDatabase =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "mpaz_database"
-                ).build().also { INSTANCE = it }
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
+                INSTANCE = instance
+                instance
             }
+        }
     }
 }

@@ -1,11 +1,20 @@
 package com.example.mpaz_pro_2.data.local
-import com.example.mpaz_pro_2.UserDao
-import com.example.mpaz_pro_2.UserEntity
-class AppRepository(private val userDao: UserDao) {
+
+import kotlinx.coroutines.flow.Flow
+
+
+class AppRepository(
+    private val userDao: UserDao,
+    private val evaluationDao: EvaluationDao
+) {
+    val allUsers: Flow<List<UserEntity>> = userDao.getAllUsers()
+    val activeEvaluation: Flow<EvaluationEntity?> = evaluationDao.getActiveEvaluation()
+
     suspend fun insertUser(user: UserEntity) {
         userDao.insertUser(user)
     }
-    suspend fun getAllUsers(): List<UserEntity> {
-        return userDao.getAllUsers()
+
+    suspend fun saveEvaluation(evaluation: EvaluationEntity) {
+        evaluationDao.insertOrUpdateEvaluation(evaluation)
     }
 }
