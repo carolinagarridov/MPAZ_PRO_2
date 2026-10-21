@@ -1,15 +1,13 @@
-package com.example.mpaz_pro_2
+package com.example.mpaz_pro_2.data.local
 
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
+
 @Dao
 interface UserDao {
-    @Query("SELECT * FROM users")
-    suspend fun getAllUsers(): List<UserEntity>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
 
-    @Delete
-    suspend fun deleteUser(user: UserEntity)
+    @Query("SELECT * FROM users")
+    fun getAllUsers(): Flow<List<UserEntity>>
 }
