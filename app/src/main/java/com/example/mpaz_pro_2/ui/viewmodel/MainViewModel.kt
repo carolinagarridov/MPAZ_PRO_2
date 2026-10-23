@@ -1,80 +1,87 @@
 package com.example.mpaz_pro_2.ui.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.mpaz_pro_2.data.local.AppDatabase
-import com.example.mpaz_pro_2.data.local.AppRepository
-import com.example.mpaz_pro_2.data.local.EvaluationEntity
-import com.example.mpaz_pro_2.data.local.UserEntity
-import com.example.mpaz_pro_2.model.ValidationEngine
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import com.example.mpaz_pro_2.data.local.*
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository: AppRepository
-    private val _uiState = MutableStateFlow(MainUiState())
-    val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
-    private val _activeEvalState = MutableStateFlow<EvaluationEntity?>(null)
-    val activeEvaluation: StateFlow<EvaluationEntity?> = _activeEvalState.asStateFlow()
+    // Objetivos de Aprendizaje (OAs)
+    val allOAs: StateFlow<List<CurricularOAEntity>> = repository.allOAs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    init {
-        val db = AppDatabase.getDatabase(application)
-        repository = AppRepository(db.userDao(), db.evaluationDao())
+    val authorizedOAs: StateFlow<List<CurricularOAEntity>> = repository.authorizedOAs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        viewModelScope.launch {
-            repository.activeEvaluation.collect { eval ->
-                _activeEvalState.value = eval
-            }
-        }
+    val publishedOAs: StateFlow<List<CurricularOAEntity>> = repository.publishedOAs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Estudiantes e Informes Pedagógicos
+    val allStudents: StateFlow<List<UserEntity>> = repository.allStudents
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allReports: StateFlow<List<PedagogicalReportEntity>> = repository.allReports
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allAttempts: StateFlow<List<StudentAttemptEntity>> = repository.allAttempts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // ----------------------------------------------------
+    // Consultas Específicas
+    // ----------------------------------------------------
+
+    // Obtener preguntas registradas para un OA específico
+    fun getQuestionsForOa(oaCode: String): Flow<List<QuestionEntity>> {
+        return repository.getQuestionsForOa(oaCode)
     }
 
-    fun onNameChanged(newName: String) {
-        val error = ValidationEngine.validateUserName(newName)
-        _uiState.update { it.copy(name = newName, nameError = error) }
+    // Obtener parámetros de configuración de la evaluación para un OA
+    fun getConfigForOa(oaCode: String): Flow<EvaluationConfigEntity?> {
+        return repository.getConfigForOa(oaCode)
     }
 
-    fun onRoleChanged(newRole: String) {
-        _uiState.update { it.copy(role = newRole) }
+    // Obtener usuario por nombre de usuario (para fotos de perfil y roles)
+    suspend fun getUserByUsername(username: String): UserEntity? {
+        return repository.getUserByUsername(username)
     }
 
-    fun onImageSelected(uri: String?) {
-        _uiState.update { it.copy(selectedImageUri = uri) }
+    // Consultar informes de un estudiante específico
+    fun getReportsForStudent(studentUsername: String): Flow<List<PedagogicalReportEntity>> {
+        return repository.getReportsForStudent(studentUsername)
     }
 
-    fun registerUser(onSuccess: () -> Unit) {
-        val nameError = ValidationEngine.validateUserName(_uiState.value.name)
-        if (nameError == null && _uiState.value.name.isNotBlank()) {
-            viewModelScope.launch {
-                val user = com.example.mpaz_pro_2.data.local.UserEntity(
-                    name = _uiState.value.name,
-                    role = _uiState.value.role,
-                    profileImageUri = _uiState.value.selectedImageUri
-                )
-                repository.insertUser(user)
-                onSuccess()
-            }
-        } else {
-            _uiState.update { it.copy(nameError = nameError ?: "El nombre es obligatorio") }
-        }
+    // Consultar intentos de un estudiante para un OA
+    fun getAttemptsForStudent(studentUsername: String, oaCode: String): Flow<List<StudentAttemptEntity>> {
+        return repository.getAttemptsForStudent(studentUsername, oaCode)
     }
 
-    fun saveEvaluation(oaTitle: String, maxAttempts: Int, evalDate: String, isGraded: Boolean, isEnabled: Boolean, onSaved: () -> Unit) {
-        viewModelScope.launch {
-            val eval = EvaluationEntity(
-                id = 1,
-                oaTitle = oaTitle,
-                maxAttempts = maxAttempts,
-                evalDate = evalDate,
-                isGraded = isGraded,
-                isEnabled = isEnabled
-            )
-            repository.saveEvaluation(eval)
-            onSaved()
-        }
+    // ----------------------------------------------------
+    // Guardado y Actualización
+    // ----------------------------------------------------
+
+    fun updateOaStatus(oa: CurricularOAEntity) {
+        viewModelScope.launch { repository.updateOaStatus(oa) }
+    }
+
+    fun createOa(oa: CurricularOAEntity) {
+        viewModelScope.launch { repository.insertOA(oa) }
+    }
+
+    fun saveQuestion(question: QuestionEntity) {
+        viewModelScope.launch { repository.insertQuestion(question) }
+    }
+
+    fun saveEvaluationConfig(config: EvaluationConfigEntity) {
+        viewModelScope.launch { repository.saveEvaluationConfig(config) }
+    }
+
+    fun saveStudentAttempt(attempt: StudentAttemptEntity) {
+        viewModelScope.launch { repository.saveStudentAttempt(attempt) }
+    }
+
+    fun saveReport(report: PedagogicalReportEntity) {
+        viewModelScope.launch { repository.saveReport(report) }
     }
 }
