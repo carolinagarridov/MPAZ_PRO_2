@@ -9,10 +9,15 @@ class AudioHelper(context: Context) {
     private var isReady = false
 
     init {
-        tts = TextToSpeech(context) { status ->
-            if (status != TextToSpeech.ERROR) {
-                tts?.language = Locale("es", "ES")
-                isReady = true
+        tts = TextToSpeech(context.applicationContext) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val engine = tts
+                var result = engine?.setLanguage(Locale.forLanguageTag("es-CL"))
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    result = engine?.setLanguage(Locale.forLanguageTag("es-ES"))
+                }
+                isReady = result != TextToSpeech.LANG_MISSING_DATA &&
+                        result != TextToSpeech.LANG_NOT_SUPPORTED
             }
         }
     }
@@ -30,5 +35,7 @@ class AudioHelper(context: Context) {
     fun shutdown() {
         tts?.stop()
         tts?.shutdown()
+        tts = null
+        isReady = false
     }
 }

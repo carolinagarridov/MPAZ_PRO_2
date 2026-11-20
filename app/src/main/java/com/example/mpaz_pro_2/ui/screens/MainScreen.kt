@@ -1,91 +1,78 @@
 package com.example.mpaz_pro_2.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.mpaz_pro_2.ui.components.GalleryPicker
 import com.example.mpaz_pro_2.ui.viewmodel.MainViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    viewModel: MainViewModel = viewModel(),
-    onNavigateToTeacher: (String) -> Unit = {},  // <-- Debe aceptar String
-    onNavigateToStudent: (String) -> Unit = {}   // <-- Debe aceptar String
+    viewModel: MainViewModel,
+    onNavigateToTeacher: (String) -> Unit = {},
+    onNavigateToStudent: (String) -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val publishedOAs by viewModel.publishedOAs.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "MPAZ PRO 2.º - Registro",
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        OutlinedTextField(
-            value = uiState.name,
-            onValueChange = { viewModel.onNameChanged(it) },
-            label = { Text("Nombre del usuario") },
-            isError = uiState.nameError != null,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        AnimatedVisibility(visible = uiState.nameError != null) {
-            uiState.nameError?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Escuela Escritora Marcela Paz", fontWeight = FontWeight.Bold) }
+            )
         }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            FilterChip(
-                selected = uiState.role == "ESTUDIANTE",
-                onClick = { viewModel.onRoleChanged("ESTUDIANTE") },
-                label = { Text("Estudiante (2° Básico)") }
-            )
-            FilterChip(
-                selected = uiState.role == "DOCENTE",
-                onClick = { viewModel.onRoleChanged("DOCENTE") },
-                label = { Text("Docente") }
-            )
-        }
-
-        GalleryPicker(
-            selectedImageUri = uiState.selectedImageUri,
-            onImageSelected = { uri -> viewModel.onImageSelected(uri) }
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Button(
-            onClick = {
-                viewModel.registerUser {
-                    val registeredName = uiState.name.ifBlank { "Usuario" }
-                    if (uiState.role == "DOCENTE") {
-                        onNavigateToTeacher(registeredName)
-                    } else {
-                        onNavigateToStudent(registeredName)
-                    }
+            ElevatedCard(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Sistema MPAZ PRO 2.º",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Objetivos de Aprendizaje Publicados: ${publishedOAs.size}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Ingresar / Registrar")
+            }
+
+            Button(
+                onClick = { onNavigateToTeacher("Docente") },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Ir al Panel Docente")
+            }
+
+            OutlinedButton(
+                onClick = { onNavigateToStudent("Estudiante") },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Ir al Panel Estudiante")
+            }
         }
     }
 }
