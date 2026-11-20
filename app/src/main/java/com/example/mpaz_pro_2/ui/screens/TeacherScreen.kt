@@ -19,6 +19,8 @@ import com.example.mpaz_pro_2.data.local.EvaluationConfigEntity
 import com.example.mpaz_pro_2.data.local.PedagogicalReportEntity
 import com.example.mpaz_pro_2.data.local.QuestionEntity
 import com.example.mpaz_pro_2.data.local.UserEntity
+import com.example.mpaz_pro_2.data.model.ObjetivoDto
+import com.example.mpaz_pro_2.data.model.Post
 import com.example.mpaz_pro_2.model.ValidationEngine
 import com.example.mpaz_pro_2.ui.components.StudentDetailDialog
 import com.example.mpaz_pro_2.ui.components.UserProfileHeader
@@ -37,6 +39,11 @@ fun TeacherScreen(
     val allReports by viewModel.allReports.collectAsState()
     val allStudents by viewModel.allStudents.collectAsState()
     val allAttempts by viewModel.allAttempts.collectAsState()
+
+    // Estados remotos (API externa + Microservicio Spring Boot)
+    val postList by viewModel.postList.collectAsState()
+    val backendObjetivos by viewModel.backendObjetivos.collectAsState()
+    val backendMsg by viewModel.backendStatusMsg.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -439,6 +446,23 @@ fun TeacherScreen(
                     }
                 }
             }
+
+            HorizontalDivider()
+
+            // 8. CRUD Microservicio Spring Boot
+            MicroservicioCrudSection(
+                objetivos = backendObjetivos,
+                statusMessage = backendMsg,
+                onCreate = { subj, code, title, desc -> viewModel.addBackendObjetivo(subj, code, title, desc) },
+                onToggleUpdate = { oa -> viewModel.toggleStatusBackendObjetivo(oa) },
+                onDelete = { id -> viewModel.removeBackendObjetivo(id) },
+                onRefresh = { viewModel.loadBackendObjetivos() }
+            )
+
+            HorizontalDivider()
+
+            // 9. API Externa (Circulares Mineduc)
+            CircularesMineducSection(posts = postList)
         }
     }
 
@@ -449,5 +473,121 @@ fun TeacherScreen(
             viewModel = viewModel,
             onDismiss = { selectedStudentForDetail = null }
         )
+    }
+}
+
+@Composable
+fun MicroservicioCrudSection(
+    objetivos: List<ObjetivoDto>,
+    statusMessage: String?,
+    onCreate: (String, String, String, String) -> Unit,
+    onToggleUpdate: (ObjetivoDto) -> Unit,
+    onDelete: (Long) -> Unit,
+    onRefresh: () -> Unit
+) {
+    var code by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf("") }
+    var desc by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "☁️ Gestión Curricular Remota (Spring Boot CRUD)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            TextButton(onClick = onRefresh) { Text("↻ Sincronizar") }
+        }
+
+        statusMessage?.let {
+            Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+        }
+
+        OutlinedTextField(
+            value = code,
+            onValueChange = { code = it },
+            label = { Text("Código OA (Ej: OA05)") },
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Título del Objetivo") },
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = desc,
+            onValueChange = { desc = it },
+            label = { Text("Descripción") },
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Button(
+            onClick = {
+                if (code.isNotBlank() && title.isNotBlank()) {
+                    onCreate("Lenguaje y Comunicación", code.trim(), title.trim(), desc.ifBlank { "Objetivo 2° Básico" })
+                    code = ""; title = ""; desc = ""
+                }
+            },
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("+ Guardar en Microservicio (POST)")
+        }
+
+        objetivos.forEach { oa ->
+            ElevatedCard(
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("${oa.oaCode}: ${oa.oaTitle}", fontWeight = FontWeight.Bold)
+                        Text(oa.status, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text(oa.description, style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { onToggleUpdate(oa) }) {
+                            Text("Cambiar Estado (PUT)")
+                        }
+                        oa.id?.let { id ->
+                            OutlinedButton(onClick = { onDelete(id) }) {
+                                Text("Eliminar (DELETE)", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CircularesMineducSection(posts: List<Post>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "📢 Circulares y Comunicados Externos (API REST)",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        if (posts.isEmpty()) {
+            Text("Cargando comunicados desde servidor...", style = MaterialTheme.typography.bodySmall)
+        } else {
+            posts.take(3).forEach { post ->
+                ElevatedCard(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(post.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                        Text(post.body, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
     }
 }

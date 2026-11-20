@@ -1,4 +1,8 @@
 package com.example.mpaz_pro_2.data.model
 
-class Post {
-}
+data class Post(
+    val userId: Int,
+    val id: Int,
+    val title: String,
+    val body: String
+)
